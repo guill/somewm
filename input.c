@@ -621,6 +621,7 @@ buttonpress(struct wl_listener *listener, void *data)
 		break;
 	}
 	case WL_POINTER_BUTTON_STATE_RELEASED: {
+		LayerSurface *l = NULL;
 		drawin_t *drawin = NULL;
 		drawable_t *titlebar_drawable = NULL;
 
@@ -629,7 +630,7 @@ buttonpress(struct wl_listener *listener, void *data)
 
 		/* Check if a drawin was released over */
 		if (!session_is_locked()) {
-			xytonode(cursor->x, cursor->y, NULL, &c, NULL, &drawin, &titlebar_drawable, NULL, NULL);
+			xytonode(cursor->x, cursor->y, NULL, &c, &l, &drawin, &titlebar_drawable, NULL, NULL);
 
 			/* Get keyboard modifiers */
 			keyboard = wlr_seat_get_keyboard(seat);
@@ -660,8 +661,11 @@ buttonpress(struct wl_listener *listener, void *data)
 				 * Like press events, releases are passed through to the client. */
 				luaA_client_button_check(c, rel_x, rel_y, event->button,
 				                        CLEANMASK(mods), false);
-			} else {
-				/* Released on empty space - check root button bindings */
+			} else if (!l) {
+				/* Released on empty space - check root button bindings. Like the
+				 * press path, a layer surface (e.g. a bar) owns its releases: a
+				 * matching root binding must not swallow them, or the surface
+				 * never sees the button go up. */
 				lua_State *L = globalconf_get_lua_State();
 
 				/* Check root button bindings for release event */
